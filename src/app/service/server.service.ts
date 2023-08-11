@@ -1,16 +1,16 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { CustomResponse } from '../interface/custome-response';
 import { Observable, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Server } from '../interface/server';
+import { Status } from '../enum/status.enum';
 
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root'})
+
 export class ServerService {
-  private readonly apiUrl = 'any';
+  private readonly apiUrl = 'http://localhost:8080';
 
   constructor(private http: HttpClient) { }
 
@@ -35,6 +35,32 @@ export class ServerService {
         catchError(this.handleError)
       );
 
+  filter$ = (status: Status, response: CustomResponse) => <Observable<CustomResponse>>
+    new Observable<CustomResponse>(
+      subscriber => {
+        console.log(response);
+        subscriber.next(
+          status === Status.ALL ? { ...response, message: `Servers are now filterd by the ${status} status` } :
+            {
+              ...response,
+              message: response.data.servers
+                .filter(server => server.status === status).length > 0 ? `Servers are now filterd by the 
+            ${status === Status.SERVER_UP ? "SERVER UP"
+                : "SERVER DOWN"} status` : `No servers of ${status} found`,
+              data: {
+                servers: response.data.servers
+                  .filter(server => server.status === status)
+              }
+            }
+        );
+        subscriber.complete();
+      }
+    )
+      .pipe(
+        tap(console.log),
+        catchError(this.handleError)
+      );
+
   delete$ = (serverId: number) => <Observable<CustomResponse>>
     this.http.delete<CustomResponse>(`${this.apiUrl}/server/delete/${serverId}`)
       .pipe(
@@ -42,7 +68,8 @@ export class ServerService {
         catchError(this.handleError)
       );
 
-  handleError(handleError: any): Observable<never> {
-    return throwError("Method is not implemented!");
+  private handleError(error: HttpErrorResponse): Observable<never> {
+    console.log(error);
+    return throwError(`Error happend - Error code: ${error.status}`);
   }
 }
